@@ -1,30 +1,67 @@
 from fastapi import APIRouter
-from models import Player, ConnectionManager, GameState
+from models import Player, ConnectionManager, GameState, PlayerCreate
 import uuid
 from supabase_client import supabase
 from helpers import get_room_or_404, update_room, all_ready, run_countdown
 import asyncio
-import datetime
+from datetime import datetime, UTC
+import bcrypt # type: ignore
 
 router = APIRouter(prefix="/players")
 manager = ConnectionManager()
+
+def hash_password(password: str) -> str:
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+
 
 # -------------------------
 # Create player
 # -------------------------
 
-@router.post("/create")
-def create_player(player: Player):
+@router.post("/create-guest")
+def create_guest(player: Player):
     player.id = str(uuid.uuid4())
-    player.created_at = datetime.utcnow()
-    player.last_seen = datetime.utcnow()
+    player.last_seen = datetime.now(UTC)
+    player.auth_id = str(uuid.uuid4())
 
     supabase.table("players").insert({
         "id": player.id,
         "name": player.name,
-        "is_guest": player.is_guest,
+        "is_guest": True,
         "auth_id": player.auth_id,
-        "room_id": player.room_id
+        "room_id": player.room_id,
+        "last_seen": player.last_seen
+    }).execute()
+    
+    return player
+
+@router.post("/create-player")
+def create_player(data: PlayerCreate):
+    player = data.player
+    account = data.account
+
+    player.id = str(uuid.uuid4())
+    player.last_seen = datetime.now(UTC)
+    player.auth_id = str(uuid.uuid4())
+
+    supabase.table("players").insert({
+        "id": player.id,
+        "name": player.name,
+        "is_guest": False,
+        "auth_id": player.auth_id,
+        "room_id": player.room_id,
+        "last_seen": player.last_seen
+    }).execute()
+
+    supabase.table("accounts").insert({
+        "id": player.auth_id,
+        "email": account.email,
+        "password_hash": hash_password(account.password)
     }).execute()
     
     return player
