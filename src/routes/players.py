@@ -4,17 +4,29 @@ import uuid
 from supabase_client import supabase
 from helpers import get_room_or_404, update_room, all_ready, run_countdown
 import asyncio
+import datetime
 
 router = APIRouter(prefix="/players")
 manager = ConnectionManager()
 
+# -------------------------
+# Create player
+# -------------------------
+
 @router.post("/create")
 def create_player(player: Player):
     player.id = str(uuid.uuid4())
+    player.created_at = datetime.utcnow()
+    player.last_seen = datetime.utcnow()
+
     supabase.table("players").insert({
         "id": player.id,
-        "name": player.name
+        "name": player.name,
+        "is_guest": player.is_guest,
+        "auth_id": player.auth_id,
+        "room_id": player.room_id
     }).execute()
+    
     return player
 
 # -------------------------
