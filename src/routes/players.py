@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-from models import Player, ConnectionManager, GameState, PlayerCreate
+from fastapi import APIRouter, HTTPException
+from models import Player, ConnectionManager, GameState, PlayerCreate, LoginReq
 import uuid
 from supabase_client import supabase
 from helpers import get_room_or_404, update_room, all_ready, run_countdown
@@ -18,6 +18,20 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 
+# -------------------------
+# Get player
+# -------------------------
+
+@router.get("/{player_id}")
+def get_player(player_id: str):
+    player_req = supabase.table("players").select("*").eq("id", player_id).execute()
+
+    if not player_req.data:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    player = player_req.data[0]
+
+    return player
 
 # -------------------------
 # Create player
@@ -35,7 +49,7 @@ def create_guest(player: Player):
         "is_guest": True,
         "auth_id": player.auth_id,
         "room_id": player.room_id,
-        "last_seen": player.last_seen
+        "last_seen": player.last_seen.isoformat()
     }).execute()
     
     return player
@@ -55,7 +69,7 @@ def create_player(data: PlayerCreate):
         "is_guest": False,
         "auth_id": player.auth_id,
         "room_id": player.room_id,
-        "last_seen": player.last_seen
+        "last_seen": player.last_seen.isoformat()
     }).execute()
 
     supabase.table("accounts").insert({
@@ -67,10 +81,49 @@ def create_player(data: PlayerCreate):
     return player
 
 # -------------------------
+# Player login
+# -------------------------
+
+@router.post("/login")
+async def login_player(login_req: LoginReq):
+    # 1. Find account by email
+    resp = supabase.table("accounts").select("*").eq("email", login_req.email).execute()
+
+    if not resp.data:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    user = resp.data[0]
+
+    # 2. Verify password
+    if not bcrypt.checkpw(login_req.password.encode(), user["password_hash"].encode()):
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    # 3. Find linked player
+    player_resp = supabase.table("players").select("*").eq("auth_id", user["id"]).execute()
+
+    if not player_resp.data:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    player = player_resp.data[0]
+
+    # 4. Update first_login
+    if not player["first_login"]:
+        supabase.table("players").update({"first_login": True, "last_seen": datetime.now(UTC).isoformat()}).eq("auth_id", user["id"]).execute()
+        player["first_login"] = True
+    else:
+        supabase.table("players").update({"first_login": False, "last_seen": datetime.now(UTC).isoformat()}).eq("auth_id", user["id"]).execute()
+        player["first_login"] = False
+
+    return {"player_id": player["id"]}
+
+
+
+
+# -------------------------
 # Player ready
 # -------------------------
 
-@router.post("/{room_id}/players/{player_id}/ready")
+@router.post("/{room_id}/{player_id}/ready")
 async def set_player_ready(room_id: str, player_id: str, value: bool):
     room = get_room_or_404(room_id)
 

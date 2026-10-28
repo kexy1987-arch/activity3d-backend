@@ -1,12 +1,12 @@
 from fastapi import APIRouter
-from models import GameState, ConnectionManager
+from models import GameState, ConnectionManager, RoomListConnectionManager
 import uuid
 from supabase_client import supabase
 from models.requests import RoomCreateRequest
 import uuid
 from dotenv import load_dotenv
 load_dotenv()
-from helpers import get_room_or_404, update_room, all_ready
+from helpers import get_room_or_404, update_room, all_ready, room_manager
 
 router = APIRouter(prefix="/rooms")
 manager = ConnectionManager()
@@ -18,10 +18,9 @@ def list_rooms():
 
 
 @router.post("/create")
-def create_room(data: RoomCreateRequest):
+async def create_room(data: RoomCreateRequest):
     room_id = str(uuid.uuid4())
-
-    supabase.table("rooms").insert({
+    room = {
         "id": room_id,
         "name": data.name,
         "creator_id": data.creator.id,
@@ -30,16 +29,17 @@ def create_room(data: RoomCreateRequest):
         "lobby": [],
         "ready_players": {},
         "countdown_seconds": 5
-    }).execute()
+    }
+
+    supabase.table("rooms").insert(room).execute()
+
+    rooms = supabase.table("rooms").select("*").execute().data
+    await room_manager.broadcast(rooms)
+    
 
     return {
         "message": "Room created",
-        "room": {
-            "id": room_id,
-            "name": data.name,
-            "creator_id": data.creator.id,
-            "state": "LOBBY"
-        }
+        "room": room
     }
 
 
@@ -59,20 +59,10 @@ async def delete_room(room_id: str):
 
     room = get_room_or_404(room_id)
 
-    await manager.broadcast(room_id, {
-        "event": "room_delete",
-        "room_id": room_id
-    })
+    supabase.table("rooms").delete().eq("id", room_id).execute()    
 
-    for ws in manager.rooms.get(room_id, []):
-        try:
-            await ws.close()
-        except:
-            pass
-
-    manager.rooms.pop(room_id, None)
-
-    supabase.table("rooms").delete().eg("id", room_id).execute()
+    rooms = supabase.table("rooms").select("*").execute().data
+    await room_manager.broadcast(rooms)
 
     return {
         "message": f"Room {room_id} deleted",
