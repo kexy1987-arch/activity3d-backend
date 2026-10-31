@@ -1,11 +1,11 @@
 from fastapi import APIRouter
-from models import Player, GameState, ConnectionManager
+from models import Player, GameState
 from dotenv import load_dotenv
 load_dotenv()
-from helpers import get_room_or_404, update_room
+from helpers import get_room_or_404, update_room, send_rooms, connection_manager
 
 router = APIRouter(prefix="/lobby")
-manager = ConnectionManager()
+manager = connection_manager
 
 # -------------------------
 # Lobby join
@@ -14,8 +14,6 @@ manager = ConnectionManager()
 @router.post("/{room_id}/join")
 async def join_lobby(room_id: str, player: Player):
     room = get_room_or_404(room_id)
-
-    room_state = GameState(room["state"])
     
     lobby = room.get("lobby", [])
     teams = room.get("teams")
@@ -27,7 +25,7 @@ async def join_lobby(room_id: str, player: Player):
     if any (player.id in [tp["id"] for tp in t.get("players", [])] for t in teams):
         return {"message": f"{player.name} is already in the team"}
 
-    lobby.append(player.model_dump())
+    lobby.append(player.model_dump(mode="json"))
 
     ready_players[player.id] = False
 
@@ -44,7 +42,7 @@ async def join_lobby(room_id: str, player: Player):
 
     await manager.broadcast(room_id, {
         "event": "player_joined_lobby",
-        "player": player.model_dump(),
+        "player": player.model_dump(mode="json"),
         "room": {
             "id": room["id"],
             "name": room["name"],
@@ -53,6 +51,10 @@ async def join_lobby(room_id: str, player: Player):
             "state": GameState.LOBBY.value
         }
     })
+
+    await send_rooms()
+
+    
 
     return {
         "message": f"{player.name} joined the lobby",
@@ -116,6 +118,8 @@ async def leave_room(room_id: str, player: Player):
             "state": GameState.LOBBY.value,
         }
     })
+
+    await send_rooms()
 
     return {
         "message": f"{player.name} left the room",
@@ -197,6 +201,8 @@ async def kick_player(room_id: str, player_id: str):
         }
     })
 
+    await send_rooms()
+
     return {
         "message": f"Player {player_id} was kicked",
         "removed_from_team": removed_from_team,
@@ -238,6 +244,8 @@ async def reset_room(room_id):
             "state": GameState.LOBBY.value
         }
     })
+
+    await send_rooms()
 
     return {
         "message": "Room has been reset",

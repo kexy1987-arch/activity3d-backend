@@ -14,8 +14,10 @@ class ConnectionManager:
                 self.rooms[room_id].remove(websocket)
 
     async def broadcast(self, room_id: str, message: dict):
-        for ws in self.rooms.get(room_id, []):
+        conns = self.rooms.get(room_id, [])
+        for ws in conns:
             await ws.send_json(message)
+        return len(conns)
 
 class RoomListConnectionManager:
     def __init__(self):

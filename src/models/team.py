@@ -4,6 +4,7 @@ from .player import Player
 class Team(BaseModel):
     id: str
     name: str
+    color: str
     players: list[Player]
     ready: bool = False
 

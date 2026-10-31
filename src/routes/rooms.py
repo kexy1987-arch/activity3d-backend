@@ -1,12 +1,12 @@
 from fastapi import APIRouter
-from models import GameState, ConnectionManager, RoomListConnectionManager
+from models import GameState, ConnectionManager
 import uuid
 from supabase_client import supabase
 from models.requests import RoomCreateRequest
 import uuid
 from dotenv import load_dotenv
 load_dotenv()
-from helpers import get_room_or_404, update_room, all_ready, room_manager
+from helpers import get_room_or_404, update_room, all_ready, send_rooms
 
 router = APIRouter(prefix="/rooms")
 manager = ConnectionManager()
@@ -33,8 +33,7 @@ async def create_room(data: RoomCreateRequest):
 
     supabase.table("rooms").insert(room).execute()
 
-    rooms = supabase.table("rooms").select("*").execute().data
-    await room_manager.broadcast(rooms)
+    await send_rooms();
     
 
     return {
@@ -57,12 +56,9 @@ def get_room(room_id: str):
 @router.delete("/{room_id}")
 async def delete_room(room_id: str):
 
-    room = get_room_or_404(room_id)
-
     supabase.table("rooms").delete().eq("id", room_id).execute()    
 
-    rooms = supabase.table("rooms").select("*").execute().data
-    await room_manager.broadcast(rooms)
+    await send_rooms();
 
     return {
         "message": f"Room {room_id} deleted",
@@ -165,6 +161,8 @@ async def cleanup_room(room_id: str):
         }
     })
 
+    await send_rooms()
+
     return {
         "message": "Room cleaned",
         "removed_players": removed_players,
@@ -206,5 +204,7 @@ async def start_game(room_id: str):
         "event": "game_start",
         "room": {**room, "state": GameState.PLAYING}
     })
+
+    await send_rooms()
 
     return {"message": "Game started", "room": {**room, "state": GameState.PLAYING}}

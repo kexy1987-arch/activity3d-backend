@@ -1,10 +1,9 @@
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException, APIRouter
-from models import ConnectionManager
-from helpers import get_room_or_404, send_rooms, room_manager
+from helpers import get_room_or_404, send_room_list, room_manager, connection_manager
 from supabase_client import supabase
 
 
-manager = ConnectionManager()
+manager = connection_manager
 router = APIRouter(prefix="/ws")
 
 # -------------------------
@@ -13,17 +12,17 @@ router = APIRouter(prefix="/ws")
 
 @router.websocket("/rooms/{room_id}")
 async def room_websocket(websocket: WebSocket, room_id: str):
-    try:
-        get_room_or_404(room_id)
-    except HTTPException:
-        await websocket.close()
-        return
-
     await manager.connect(room_id, websocket)
+    room = get_room_or_404(room_id)
+
+    await manager.broadcast(room_id, {
+        "event": "New Connection",
+        "room": room
+        })
 
     try:
         while True:
-            await websocket.receive_text()  # or JSON if you want
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(room_id, websocket)
 
@@ -32,7 +31,7 @@ async def rooms_ws(websocket: WebSocket):
 
     await room_manager.connect(websocket)
 
-    await send_rooms(websocket)
+    await send_room_list(websocket);
 
     try:
         while True:
