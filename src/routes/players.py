@@ -154,6 +154,7 @@ async def set_player_ready(room_id: str, player_id: str, value: bool):
             "event": "countdown_stopped",
             "room": room,
             "message": f"Player {player_name} is now not ready",
+            "ready_players": ready_players,
             "state": GameState.LOBBY.value,
             })
 
@@ -172,6 +173,7 @@ async def set_player_ready(room_id: str, player_id: str, value: bool):
             "room": room,
             "message": "Countdown started",
             "state": GameState.COUNTDOWN.value,
+            "ready_players": ready_players,
         })
 
         return {

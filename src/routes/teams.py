@@ -161,6 +161,7 @@ async def set_team_ready(room_id: str, team_id: str, value: bool):
 
         await manager.broadcast(room_id, {
             "event": "countdown_stopped",
+            "message": "Countdown stopped!",
             "room": room
         })
 
@@ -172,6 +173,7 @@ async def set_team_ready(room_id: str, team_id: str, value: bool):
 
             await manager.broadcast(room_id, {
                             "event": "countdown_started",
+                            "message": "Countdown started!",
                             "room": room
                         })
 
