@@ -2,13 +2,13 @@ from fastapi import APIRouter, HTTPException
 from models import Player, ConnectionManager, GameState, PlayerCreate, LoginReq
 import uuid
 from supabase_client import supabase
-from helpers import get_room_or_404, update_room, all_ready, run_countdown
+from helpers import get_room_or_404, update_room, all_ready, run_countdown, connection_manager, all_players_ready
 import asyncio
 from datetime import datetime, UTC
 import bcrypt # type: ignore
 
 router = APIRouter(prefix="/players")
-manager = ConnectionManager()
+manager = connection_manager
 
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
@@ -132,23 +132,34 @@ async def set_player_ready(room_id: str, player_id: str, value: bool):
     ready_players = room.get("ready_players", {})
     ready_players[player_id] = value
 
+    player_name = supabase.table("players").select("name").eq("id", player_id).execute().data[0]["name"]
+
+    room["ready_players"] = ready_players
+
     update_room(room_id, {"ready_players": ready_players})
+
 
     await manager.broadcast(room_id, {
         "event": "player_ready",
         "player_id": player_id,
         "value": value,
-        "ready_players": ready_players
+        "ready_players": ready_players,
+        "room": room
     })
 
     if value is False:
         update_room(room_id, {"state": GameState.LOBBY.value})
 
-        await manager.broadcast(room_id, {"event": "countdown_stopped"})
+        await manager.broadcast(room_id, {
+            "event": "countdown_stopped",
+            "room": room,
+            "message": f"Player {player_name} is now not ready",
+            "state": GameState.LOBBY.value,
+            })
 
         return {
-            "message": f"Player {player_id} is now not ready",
-            "state": GameState.Lobby.value,
+            "message": f"Player {player_name} is now not ready",
+            "state": GameState.LOBBY.value,
             "ready_players": ready_players
         }
 
@@ -157,7 +168,10 @@ async def set_player_ready(room_id: str, player_id: str, value: bool):
         asyncio.create_task(run_countdown(room_id))
 
         await manager.broadcast(room_id, {
-            "event": "countdown_started"
+            "event": "countdown_started",
+            "room": room,
+            "message": "Countdown started",
+            "state": GameState.COUNTDOWN.value,
         })
 
         return {
@@ -167,7 +181,7 @@ async def set_player_ready(room_id: str, player_id: str, value: bool):
         }
 
     return {
-        "message": f"Player {player_id} is now {'ready' if value else 'not ready'}",
+        "message": f"Player {player_name} is now {'ready' if value else 'not ready'}",
         "ready_players": ready_players,
         "state": room_state.value
     }

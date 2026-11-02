@@ -18,3 +18,11 @@ def all_ready(room: dict) -> bool:
             return False
 
     return True
+
+def all_players_ready(room: dict) -> bool:
+    ready_players = room.get("ready_players", {})
+    for player_id, is_ready in ready_players.items():
+        if not is_ready:
+            return False
+
+    return True

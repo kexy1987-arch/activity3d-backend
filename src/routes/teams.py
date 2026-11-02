@@ -16,24 +16,21 @@ router = APIRouter(prefix="/teams")
 @router.post("/{room_id}/create_team")
 async def create_team(room_id: str, color: str, player: Player):
     room = get_room_or_404(room_id)
-    dump_player = player.model_dump(mode="json")
 
     teams = room.get("teams", [])
     
     lobby = room.get("lobby", [])
-
+    
     team_id = str(uuid.uuid4())
     team = Team(
         id=team_id, 
         name=f"Team {len(teams) + 1}", 
         color= color,
-        players=[dump_player],
+        players=[],
         ready=False
     ).model_dump(mode="json")
-
     teams.append(team)
-
-    lobby = [p for p in lobby if p["id"] != player.id]
+        
 
     update_room(room_id, {
         "teams": teams, 
@@ -45,7 +42,8 @@ async def create_team(room_id: str, color: str, player: Player):
 
     broadcast = await manager.broadcast(room_id, to_json_safe({
         "event": "player_created_team",
-        "room": room
+        "room": room,
+        "message": f"{player.name} created a team"
     }))
 
     print("BROADCAST:", broadcast)
@@ -109,18 +107,19 @@ async def join_team(room_id: str, team_id: str, player: Player):
     await manager.broadcast(room_id, {
         "event": "player_joined_team",
         "team": team,
-        "player": player.model_dump(mode="json"),
+        "message": f"{player.name} joined {team.get('name', '')} {team.get('color', '')}",
         "room": {
             "id": room["id"],
             "name": room["name"],
             "teams": teams,
             "lobby": lobby,
-            "state": GameState.LOBBY.value
+            "state": GameState.LOBBY.value,
+            "ready_players": ready_players
         }
     })
 
     return {
-        "message": f"{player.name} joined team {team.get('name', '')}",
+        "message": f"{player.name} joined {team.get('name', '')}",
         "team": team,
         "room": {
             "id": room["id"],
@@ -151,7 +150,8 @@ async def set_team_ready(room_id: str, team_id: str, value: bool):
     await manager.broadcast(room_id, {
         "event": "team_ready",
         "team_id": team_id,
-        "value": value
+        "value": value,
+        "room": room
     })
 
     room_state = GameState(room["state"])
@@ -160,7 +160,8 @@ async def set_team_ready(room_id: str, team_id: str, value: bool):
         update_room(room_id, {"state": GameState.LOBBY.value})
 
         await manager.broadcast(room_id, {
-            "event": "countdown_stopped"
+            "event": "countdown_stopped",
+            "room": room
         })
 
     if all_ready(room):
@@ -170,12 +171,14 @@ async def set_team_ready(room_id: str, team_id: str, value: bool):
             asyncio.create_task(run_countdown(room_id))
 
             await manager.broadcast(room_id, {
-                            "event": "countdown_started"
+                            "event": "countdown_started",
+                            "room": room
                         })
 
             return {
                 "message": "countdown_started",
-                "state": GameState.COUNTDOWN.value
+                "state": GameState.COUNTDOWN.value,
+                "room": room
             }
 
     return {

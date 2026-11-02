@@ -93,7 +93,7 @@ async def leave_room(room_id: str, player: Player):
 
     teams = [t for t in teams if len(t.get("players", [])) > 0]
 
-    ready_players[player_id] = False
+    ready_players.pop(player.id, None)
 
     update_room(room_id, {
         "lobby": lobby,
@@ -103,33 +103,30 @@ async def leave_room(room_id: str, player: Player):
     })
 
     await manager.broadcast(room_id, {
-        "event": "counter_stopped"
-    })
-
-    await manager.broadcast(room_id, {
         "event": "player_left",
-        "player": player.model_dump(),
-        "removed_from_team": removed_from_team,
+        "player": player.model_dump(mode="json"),
         "room": {
             "id": room["id"],
             "name": room["name"],
             "lobby": lobby,
             "teams": teams,
             "state": GameState.LOBBY.value,
+            "ready_players": ready_players
         }
     })
 
     await send_rooms()
 
     return {
+        "event": "leave",
         "message": f"{player.name} left the room",
-        "removed_from_team": removed_from_team,
         "room": {
             "id": room["id"],
             "name": room["name"],
             "lobby": lobby,
             "teams": teams,
             "state": GameState.LOBBY.value,
+            "ready_players": ready_players
         }
     }
 
@@ -141,10 +138,11 @@ async def leave_room(room_id: str, player: Player):
 async def kick_player(room_id: str, player_id: str):
     room = get_room_or_404(room_id)
 
-    room_state = GameState(room["state"])
     lobby = room.get("lobby", [])
     teams = room.get("teams", [])
-    ready_players = room.get("ready-players", {})
+    ready_players = room.get("ready_players", {})
+
+    print("READY_PLAYERS: ", ready_players)
 
     kicked_player = None
 
@@ -174,8 +172,9 @@ async def kick_player(room_id: str, player_id: str):
 
     teams = [t for t in teams if len(t.get("players", []))> 0]
 
-    if player_id in ready_players:
-        ready_players[player_id] = False
+    
+
+    ready_players.pop(player_id, None)
 
     for t in teams:
         t["ready"] = False
@@ -183,8 +182,8 @@ async def kick_player(room_id: str, player_id: str):
     update_room(room_id, {
         "lobby": lobby,
         "teams": teams,
-        "ready-players": ready_players,
-        "state": GameState.LOBBY.value
+        "ready_players": ready_players,
+        "state": GameState.LOBBY.value,
     })
 
     await manager.broadcast(room_id, {
@@ -197,7 +196,8 @@ async def kick_player(room_id: str, player_id: str):
             "name": room["name"],
             "lobby": lobby,
             "teams": teams,
-            "state": GameState.LOBBY.value
+            "state": GameState.LOBBY.value,
+            "ready_players": ready_players
         }
     })
 
@@ -206,13 +206,14 @@ async def kick_player(room_id: str, player_id: str):
     return {
         "message": f"Player {player_id} was kicked",
         "removed_from_team": removed_from_team,
-        "player": kicked_player,
+        "player_id": player_id,
         "room": {
             "id": room["id"],
             "name": room["name"],
             "lobby": lobby,
             "state": GameState.LOBBY.value,
             "teams": teams,
+            "ready_players": ready_players
         }
     }
 

@@ -1,10 +1,12 @@
 from .update_room import update_room
-from models import GameState, ConnectionManager
+from models import GameState
 from .get_room_or_404 import get_room_or_404
 from .all_ready import all_ready
+from .managers import connection_manager
+import asyncio
 
 
-manager = ConnectionManager()
+manager = connection_manager
 
 async def run_countdown(room_id: str):
     room = get_room_or_404(room_id)
@@ -15,10 +17,11 @@ async def run_countdown(room_id: str):
 
     await manager.broadcast(room_id, {
         "event": "countdown_started",
-        "seconds": countdown_seconds
+        "seconds": countdown_seconds,
+        "room": room
     })
 
-    for i in range(room.countdown_seconds, 0, -1):
+    for i in range(countdown_seconds, 0, -1):
 
         room = get_room_or_404(room_id)
 
@@ -26,13 +29,15 @@ async def run_countdown(room_id: str):
             update_room(room_id, {"state": GameState.LOBBY.value})
 
             await manager.broadcast(room_id, {
-                "event": "countdown_stopped"
+                "event": "countdown_stopped",
+                "room": room
             })
             return
 
         await manager.broadcast(room_id, {
             "event": "countdown_tick",
-            "value": 1
+            "value": 1,
+            "room": room
         })
 
         await asyncio.sleep(1)
