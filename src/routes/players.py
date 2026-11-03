@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models import Player, ConnectionManager, GameState, PlayerCreate, LoginReq
+from models import Player, PlayerUpdate, GameState, PlayerCreate, LoginReq
 import uuid
 from supabase_client import supabase
 from helpers import get_room_or_404, update_room, all_ready, run_countdown, connection_manager, all_players_ready
@@ -186,4 +186,31 @@ async def set_player_ready(room_id: str, player_id: str, value: bool):
         "message": f"Player {player_name} is now {'ready' if value else 'not ready'}",
         "ready_players": ready_players,
         "state": room_state.value
+    }
+
+# -------------------------
+# Player update
+# -------------------------
+
+@router.post('/update')
+async def player_update(player: PlayerUpdate):
+    update_data = {}
+
+    if player.name is not None:
+        update_data["name"] = player.name
+
+    if player.avatar_url is not None:
+        update_data["avatar_url"] = player.avatar_url
+
+    response = supabase.table("players").update(update_data).eq("id", player.id).execute()
+
+    if response.data:
+        return {
+            "message": "Updated",
+            "player": response.data
+        }
+        return
+
+    return {
+        "message": "Update failed"
     }
