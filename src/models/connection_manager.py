@@ -56,7 +56,7 @@ class ConnectionManager:
         for conn in conns:
             try:
                 await conn["ws"].send_json(message)
-                alive_conns.append(conns)
+                alive_conns.append(conn)
             except Exception:
                 pass
         self.rooms[room_id] = alive_conns
