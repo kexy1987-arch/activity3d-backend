@@ -7,17 +7,18 @@ manager = connection_manager
 router = APIRouter(prefix="/ws")
 
 # -------------------------
-# WebSocket endpoint
+# Room WebSocket endpoint
 # -------------------------
 
 @router.websocket("/rooms/{room_id}")
 async def room_websocket(websocket: WebSocket, room_id: str):
-    await manager.connect(room_id, websocket)
+    player_id = websocket.query_params.get("player_id")
+    await manager.connect(room_id, websocket, player_id)
     room = get_room_or_404(room_id)
 
     await manager.broadcast(room_id, {
         "event": "New Connection",
-        "room": room
+        "room": room,
         })
 
     try:
@@ -25,6 +26,10 @@ async def room_websocket(websocket: WebSocket, room_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(room_id, websocket)
+
+# -------------------------
+# Room List WebSocket endpoint
+# -------------------------
 
 @router.websocket("/rooms")
 async def rooms_ws(websocket: WebSocket):

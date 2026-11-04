@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException
-from models import Player, PlayerUpdate, GameState, PlayerCreate, LoginReq
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile
+from models import Player, GameState, PlayerCreate, LoginReq
 import uuid
 from supabase_client import supabase
 from helpers import get_room_or_404, update_room, all_ready, run_countdown, connection_manager, all_players_ready
@@ -193,16 +193,31 @@ async def set_player_ready(room_id: str, player_id: str, value: bool):
 # -------------------------
 
 @router.post('/update')
-async def player_update(player: PlayerUpdate):
+async def player_update(player_id: str = Form(None), name: str = Form(None), avatar_file: UploadFile =  File(None)):
+    if player_id is None:
+        return {
+            "message": "Missing player id"
+        }
+    
     update_data = {}
 
-    if player.name is not None:
-        update_data["name"] = player.name
+    if name is not None:
+        update_data["name"] = name
 
-    if player.avatar_url is not None:
-        update_data["avatar_url"] = player.avatar_url
+    if avatar_file is not None:
+        file_bytes = await avatar_file.read()
+        file_path = f"avatars/{player_id}/{avatar_file.filename}"
+        supabase.storage.from_("players").upload(file_path, file_bytes, {
+            "content-type": avatar_file.content_type,
+            "upsert": "true"
+        })
 
-    response = supabase.table("players").update(update_data).eq("id", player.id).execute()
+        public_url = supabase.storage.from_("players").get_public_url(file_path)
+        update_data["avatar_url"] = public_url
+        
+        
+
+    response = supabase.table("players").update(update_data).eq("id", player_id).execute()
 
     if response.data:
         return {
