@@ -5,3 +5,4 @@ from .connection_manager import ConnectionManager, RoomListConnectionManager
 from .account import Account
 from .playercreate import PlayerCreate
 from .player_login import LoginReq
+from .message import Message

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from models import GameState, ConnectionManager
+from models import GameState, ConnectionManager, Message
 import uuid
 from supabase_client import supabase
 from models.requests import RoomCreateRequest
@@ -208,3 +208,47 @@ async def start_game(room_id: str):
     await send_rooms()
 
     return {"message": "Game started", "room": {**room, "state": GameState.PLAYING}}
+
+# -------------------------
+# Send message
+# -------------------------
+
+@router.post("/message/{room_id}")
+async def send_message(room_id: str, message: Message):
+    if not message or isinstance(message, list):
+        return {"error": "Massage must be an object"}
+
+    try:
+        msg = Message(message)
+    except Exception as e:
+        return { "ok": False, "error": f"Invalid message: {e}"}
+
+    msg["id"] = room_id
+
+    try:
+        supabase.table("room_messages").insert(msg.model_dump(mode="json")).execute()
+    except Exception as e:
+        return {"ok": False, "error": f"Database error: {e}"}
+
+    await manager.broadcast(room_id, {
+        "event": "new_message",
+        "room_message": msg.model_dump(mode="json")
+    })
+
+    return {"ok": True}
+
+# -------------------------
+# Get messages
+# -------------------------
+
+@router.get("/message/{room_id}")
+async def get_messages(room_id: str):
+    if not isinstance(room_id, str):
+        return {"ok": False, "error": "Invalid room id."}
+
+    try:
+        messages = supabase.table("room_messages").select("*").eq("id", room_id).execute()
+    except Exception as e:
+        return { "ok": False, "error": f"Database error: {e}"}
+    
+    return { "ok": True, "messages": messages.data}
