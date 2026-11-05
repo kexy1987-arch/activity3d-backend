@@ -6,10 +6,10 @@ from models.requests import RoomCreateRequest
 import uuid
 from dotenv import load_dotenv
 load_dotenv()
-from helpers import get_room_or_404, update_room, all_ready, send_rooms
+from helpers import get_room_or_404, update_room, all_ready, send_rooms, connection_manager
 
 router = APIRouter(prefix="/rooms")
-manager = ConnectionManager()
+manager = connection_manager
 
 @router.get("")
 def list_rooms():
@@ -216,24 +216,24 @@ async def start_game(room_id: str):
 @router.post("/message/{room_id}")
 async def send_message(room_id: str, message: Message):
     if not message or isinstance(message, list):
-        return {"error": "Massage must be an object"}
+        return {"error": "Message must be an object"}
+
+    msg = {"player_name": message.player_name, "message": message.message}
+    msg["room_id"] = room_id
+    if message.avatar_url:
+        msg["avatar_url"] = message.avatar_url
 
     try:
-        msg = Message(message)
-    except Exception as e:
-        return { "ok": False, "error": f"Invalid message: {e}"}
-
-    msg["id"] = room_id
-
-    try:
-        supabase.table("room_messages").insert(msg.model_dump(mode="json")).execute()
+        supabase.table("room_msgs").insert(msg).execute()
     except Exception as e:
         return {"ok": False, "error": f"Database error: {e}"}
 
-    await manager.broadcast(room_id, {
+    bc = await manager.broadcast(room_id, {
         "event": "new_message",
-        "room_message": msg.model_dump(mode="json")
+        "room_message": msg
     })
+
+    print("BC:", bc)
 
     return {"ok": True}
 
@@ -247,7 +247,7 @@ async def get_messages(room_id: str):
         return {"ok": False, "error": "Invalid room id."}
 
     try:
-        messages = supabase.table("room_messages").select("*").eq("id", room_id).execute()
+        messages = supabase.table("room_msgs").select("*").eq("room_id", room_id).execute()
     except Exception as e:
         return { "ok": False, "error": f"Database error: {e}"}
     
