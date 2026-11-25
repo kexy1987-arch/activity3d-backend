@@ -1,5 +1,5 @@
 from .update_room import update_room
-from models import GameState
+from src.models import GameState
 from .get_room_or_404 import get_room_or_404
 from .all_ready import all_ready
 from .managers import connection_manager

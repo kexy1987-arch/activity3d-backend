@@ -1,5 +1,5 @@
-from models import RoomListConnectionManager
-from models import ConnectionManager
+from src.models import RoomListConnectionManager
+from src.models import ConnectionManager
 
 
 connection_manager = ConnectionManager()

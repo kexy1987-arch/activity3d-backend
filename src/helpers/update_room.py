@@ -1,4 +1,4 @@
-from supabase_client import supabase
+from src.supabase_client import supabase
 
 def update_room(room_id: str, data: dict):
     result = supabase.table("rooms").update(data).eq("id", room_id).execute()

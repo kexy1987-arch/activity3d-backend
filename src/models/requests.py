@@ -1,6 +1,6 @@
 from pydantic import BaseModel
-from models.player import Player
-from models.team import Team
+from src.models.player import Player
+from src.models.team import Team
 
 class RoomCreateRequest(BaseModel):
     name: str

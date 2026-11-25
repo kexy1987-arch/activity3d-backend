@@ -1,4 +1,4 @@
-from supabase_client import supabase
+from src.supabase_client import supabase
 from fastapi import WebSocket
 from .managers import room_manager, connection_manager
 

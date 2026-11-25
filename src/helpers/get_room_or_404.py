@@ -1,4 +1,4 @@
-from supabase_client import supabase
+from src.supabase_client import supabase
 from fastapi import HTTPException
 
 def get_room_or_404(room_id: str) -> dict:
