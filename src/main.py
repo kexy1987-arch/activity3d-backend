@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 load_dotenv()
-from src.routes import create_player_router, rooms_router, lobby_router, teams_router, websocket_router
+from routes import create_player_router, rooms_router, lobby_router, teams_router, websocket_router
 
 
 app = FastAPI()
