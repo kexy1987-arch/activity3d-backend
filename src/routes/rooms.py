@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from src.models import GameState, Message
 import uuid
-from supabase_client import supabase
+from src.supabase_client import supabase
 from src.models.requests import RoomCreateRequest
 import uuid
 from dotenv import load_dotenv
