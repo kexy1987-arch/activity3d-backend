@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from models import Player, GameState
+from src.models import Player, GameState
 from dotenv import load_dotenv
 load_dotenv()
 from src.helpers import get_room_or_404, update_room, send_rooms, connection_manager
