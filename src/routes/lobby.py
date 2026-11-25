@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from models import Player, GameState
 from dotenv import load_dotenv
 load_dotenv()
-from helpers import get_room_or_404, update_room, send_rooms, connection_manager
+from src.helpers import get_room_or_404, update_room, send_rooms, connection_manager
 
 router = APIRouter(prefix="/lobby")
 manager = connection_manager

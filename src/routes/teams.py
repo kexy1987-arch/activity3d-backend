@@ -1,10 +1,10 @@
 from fastapi import APIRouter
-from models import Player, Team, GameState
+from src.models import Player, Team, GameState
 import uuid
 import asyncio
 from dotenv import load_dotenv
 load_dotenv()
-from helpers import all_ready, get_room_or_404, run_countdown, update_room, to_json_safe, connection_manager, find_player_team
+from src.helpers import all_ready, get_room_or_404, run_countdown, update_room, to_json_safe, connection_manager, find_player_team
 
 manager = connection_manager
 router = APIRouter(prefix="/teams")

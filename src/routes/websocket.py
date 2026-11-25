@@ -1,5 +1,5 @@
-from fastapi import WebSocket, WebSocketDisconnect, HTTPException, APIRouter
-from helpers import get_room_or_404, send_room_list, room_manager, connection_manager
+from fastapi import WebSocket, WebSocketDisconnect, APIRouter
+from src.helpers import get_room_or_404, send_room_list, room_manager, connection_manager
 from supabase_client import supabase
 
 
